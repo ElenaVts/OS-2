@@ -1,6 +1,5 @@
 # OS-2
 OS Project
-Here is the translation of the provided Greek text into English:
 
 Process Scheduler
 
