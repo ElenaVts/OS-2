@@ -1,0 +1,71 @@
+[phadjido@falcon os_prj2]$ ls
+scheduler  work
+[phadjido@falcon os_prj2]$ cd work/
+[phadjido@falcon work]$ ls
+Makefile  work.c  work_io.c
+[phadjido@falcon work]$ make
+gcc -O0 -Wall -DLOAD=1 -DDELAY=750 -o work1 work.c
+gcc -O0 -Wall -DLOAD=2 -DDELAY=750 -o work2 work.c
+gcc -O0 -Wall -DLOAD=3 -DDELAY=750 -o work3 work.c
+gcc -O0 -Wall -DLOAD=4 -DDELAY=750 -o work4 work.c
+gcc -O0 -Wall -DLOAD=5 -DDELAY=750 -o work5 work.c
+gcc -O0 -Wall -DLOAD=6 -DDELAY=750 -o work6 work.c
+gcc -O0 -Wall -DLOAD=7 -DDELAY=750 -o work7 work.c
+gcc -O0 -Wall -DLOAD=5 -DDELAY=750 -o work5x2_io work_io.c
+[phadjido@falcon work]$ ls
+Makefile  work1  work2  work3  work4  work5  work5x2_io  work6  work7  work.c  work_io.c
+[phadjido@falcon work]$ cd ../scheduler/
+[phadjido@falcon scheduler]$ ls
+homogeneous.txt  Makefile  mixed.txt  reverse.txt  run.sh  sample_output.txt  scheduler.c  scheduler_io.c
+[phadjido@falcon scheduler]$ make
+gcc -Wall  -lm  scheduler.c   -o scheduler
+gcc -Wall  -lm  scheduler_io.c   -o scheduler_io
+[phadjido@falcon scheduler]$ ls
+homogeneous.txt  Makefile  mixed.txt  reverse.txt  run.sh  sample_output.txt  scheduler  scheduler.c  scheduler_io  scheduler_io.c
+[phadjido@falcon scheduler]$ ./scheduler FCFS reverse.txt 
+executing ../work/work7
+process 643255 begins
+process 643255 ends
+PID 643255 - CMD: ../work/work7
+	Elapsed time = 7.11 secs
+	Workload time = 7.11 secs
+Dequeue process with name ../work/work6
+executing ../work/work6
+process 643256 begins
+process 643256 ends
+PID 643256 - CMD: ../work/work6
+	Elapsed time = 13.21 secs
+	Workload time = 13.21 secs
+executing ../work/work5
+process 643257 begins
+process 643257 ends
+PID 643257 - CMD: ../work/work5
+	Elapsed time = 18.30 secs
+	Workload time = 18.30 secs
+executing ../work/work4
+process 643258 begins
+process 643258 ends
+PID 643258 - CMD: ../work/work4
+	Elapsed time = 22.37 secs
+	Workload time = 22.37 secs
+Dequeue process with name ../work/work3
+executing ../work/work3
+process 643259 begins
+process 643259 ends
+PID 643259 - CMD: ../work/work3
+	Elapsed time = 25.43 secs
+	Workload time = 25.43 secs
+executing ../work/work2
+process 643260 begins
+process 643260 ends
+PID 643260 - CMD: ../work/work2
+	Elapsed time = 27.46 secs
+	Workload time = 27.46 secs
+executing ../work/work1
+process 643261 begins
+process 643261 ends
+PID 643261 - CMD: ../work/work1
+	Elapsed time = 28.48 secs
+	Workload time = 28.48 secs
+WORKLOAD TIME: 28.48 secs
+scheduler exits
