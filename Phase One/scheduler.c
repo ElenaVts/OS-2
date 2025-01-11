@@ -10,7 +10,7 @@
 
 #define MAX_LINE_LENGTH 80
 
-void fcfs();
+void fcfs(int numprocs);
 void rr();
 
 #define PROC_NEW	0
