@@ -23,7 +23,7 @@ typedef struct proc_desc {
 	char name[80];
 	int pid;
 	int status;
-	int num_proc;
+	int num_proc; /////////////////////////////////////////////////////////////
 	double t_submission, t_start, t_end;
 } proc_t;
 
@@ -99,7 +99,7 @@ double proc_gettime()
 }
 
 #define FCFS	0
-#define RR		1
+#define RR	1
 
 int policy = FCFS;
 int quantum = 100;	/* ms */
@@ -140,7 +140,7 @@ int main(int argc,char **argv)
 	}
 
 	/* Read input file */
-	while ((c=fscanf(input, "%s %d", exec, &numproc))!=EOF) {
+	while ((c=fscanf(input, "%s %d", exec, &numproc))!=EOF) { ///////////////////////////////
 		// printf("fscanf returned %d\n", c);
 		// printf("exec = %s\n", exec);
 
@@ -149,7 +149,7 @@ int main(int argc,char **argv)
 		strcpy(proc->name, exec);
 		proc->pid = -1;
 		proc->status = PROC_NEW;
-		proc->num_proc = numproc;
+		proc->num_proc = numproc; /////////////////////////////////////////////
 		proc->t_submission = proc_gettime();
 		proc_to_rq_end(proc);
 	}
@@ -191,7 +191,7 @@ void fcfs()
 			if (pid == -1) {
 				err_exit("fork failed!");
 			}
-			if (pid == 0) { //anathesi ergasias se epejergasti.
+			if (pid == 0) { /////////////////////////////anathesi ergasias se epejergasti.
 				printf("executing %s\n", proc->name);
 				execl(proc->name, proc->name, NULL);
 			} else {
@@ -205,7 +205,7 @@ void fcfs()
 				printf("\tElapsed time = %.2lf secs\n", proc->t_end-proc->t_submission);
 				printf("\tExecution time = %.2lf secs\n", proc->t_end-proc->t_start);
 				printf("\tWorkload time = %.2lf secs\n", proc->t_end-global_t);
-				//eleutherwsi epejergasti.
+				//////////////////////////////////////////////////////eleutherwsi epejergasti.
 			}
 		}
 	}
