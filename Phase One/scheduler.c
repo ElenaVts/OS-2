@@ -315,7 +315,7 @@ void fcfs(int numprocs) {
             if (pid < 0) err_exit("waitpid failed");
             processors[i]->status = PROC_EXITED;
             processors[i]->t_end = proc_gettime();
-            printf("Processor %d - PID %d - CMD: %s\n", i, pid, processors[i]->name);
+            printf("Processor %d - PID %d - CMD: %s\n", i + 1, pid, processors[i]->name);
             printf("\tElapsed time = %.2lf secs\n", processors[i]->t_end - processors[i]->t_submission);
             printf("\tExecution time = %.2lf secs\n", processors[i]->t_end - processors[i]->t_start);
             printf("\tWorkload time = %.2lf secs\n", processors[i]->t_end - global_t);
