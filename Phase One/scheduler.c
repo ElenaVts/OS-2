@@ -23,7 +23,7 @@ typedef struct proc_desc {
 	char name[80];
 	int pid;
 	int status;
-	int num_proc; /////////////////////////////////////////////////////////////
+	int num_procs; /////////////////////////////////////////////////////////////
 	double t_submission, t_start, t_end;
 } proc_t;
 
@@ -116,7 +116,8 @@ int main(int argc,char **argv)
 {
 	FILE *input;
 	char exec[80];
-	int c;
+	int c, num_processors;
+	int numprocs;
 	proc_t *proc;
 
 	if (argc == 1) {
@@ -124,23 +125,35 @@ int main(int argc,char **argv)
 	} else if (argc == 2) {
 		input = fopen(argv[1],"r");
 		if (input == NULL) err_exit("invalid input file name");
+		num_processors = 1;
 	} else if (argc > 2) {
 		if (!strcmp(argv[1],"FCFS")) {
 			policy = FCFS;
 			input = fopen(argv[2],"r");
 			if (input == NULL) err_exit("invalid input file name");
+			if (argc > 3) {
+                num_processors = atoi(argv[3]);
+            } else {
+                num_processors = 1; // Default to 1 processor
+            }
 		} else if (!strcmp(argv[1],"RR")) {
 			policy = RR;
 			quantum = atoi(argv[2]);
 			input = fopen(argv[3],"r");
 			if (input == NULL) err_exit("invalid input file name");
+			if (argc > 4) {
+                num_processors = atoi(argv[4]);
+            } else {
+                num_processors = 1; // Default to 1 processor
+            }
 		} else {
 			err_exit("invalid usage");
 		}
 	}
-
+    proc_queue_init(&global_q);
+    
 	/* Read input file */
-	while ((c=fscanf(input, "%s %d", exec, &numproc))!=EOF) { ///////////////////////////////
+	while ((c=fscanf(input, "%s %d", exec, &numprocs))!=EOF) { ///////////////////////////////
 		// printf("fscanf returned %d\n", c);
 		// printf("exec = %s\n", exec);
 
@@ -149,17 +162,18 @@ int main(int argc,char **argv)
 		strcpy(proc->name, exec);
 		proc->pid = -1;
 		proc->status = PROC_NEW;
-		proc->num_proc = numproc; /////////////////////////////////////////////
+		proc->num_procs = numprocs; /////////////////////////////////////////////
 		proc->t_submission = proc_gettime();
 		proc_to_rq_end(proc);
 	}
-
+    fclose(input);
+    
 	//print_queue(&global_q);
 
   	global_t = proc_gettime();
 	switch (policy) {
 		case FCFS:
-			fcfs();
+			fcfs(num_processors);
 			break;
 
 		case RR:
@@ -177,12 +191,33 @@ int main(int argc,char **argv)
 }
 
 
-void fcfs()
+/*void fcfs(int numprocs)
 {
+    proc_t *processor_queues[numprocs];
 	proc_t *proc;
 	int pid;
 	int status;
 
+    for (int i = 0; i < numprocs; i++) {
+        processor_queues[i] = NULL;
+    }
+    
+    int count = 0; // Count total processes
+    proc_t *temp_proc = global_q.first;
+    while (temp_proc != NULL) {
+        count++;
+        temp_proc = temp_proc->next;
+    }
+    
+    proc_t *processes[count];
+    temp_proc = global_q.first;
+    for (int i = 0; i < count; i++) {
+        processes[i] = temp_proc;
+        temp_proc = temp_proc->next;
+    }
+    
+    
+    
 	while ((proc=proc_rq_dequeue()) != NULL) {
 		// printf("Dequeued process with name %s\n", proc->name);
 		if (proc->status == PROC_NEW) {
@@ -209,7 +244,90 @@ void fcfs()
 			}
 		}
 	}
+}*/
+
+void fcfs(int numprocs) {
+    proc_t *proc;
+    int *processor_status;
+    proc_t **processors;
+    int i, status;
+    pid_t pid;
+
+    // Allocate memory for processors and processor statuses dynamically
+    processors = malloc(numprocs * sizeof(proc_t *));
+    processor_status = malloc(numprocs * sizeof(int));
+    if (!processors || !processor_status) {
+        err_exit("Memory allocation failed for processors or statuses");
+    }
+
+    // Initialize all processors as available
+    for (i = 0; i < numprocs; i++) {
+        processors[i] = NULL;
+        processor_status[i] = PROC_NEW;
+    }
+
+    while ((proc = proc_rq_dequeue()) != NULL) {
+        // Find the next available processor
+        for (i = 0; i < numprocs; i++) {
+            if (processor_status[i] == PROC_EXITED || processor_status[i] == PROC_NEW) {
+                break; // Found an available processor
+            }
+        }
+
+        if (i == numprocs) {
+            // No processors are free; wait for one to complete
+            pid = waitpid(-1, &status, 0);
+            if (pid < 0) err_exit("waitpid failed");
+            for (i = 0; i < numprocs; i++) {
+                if (processors[i] && processors[i]->pid == pid) {
+                    processors[i]->status = PROC_EXITED;
+                    processors[i]->t_end = proc_gettime();
+                    printf("Processor %d - PID %d - CMD: %s\n", i + 1, pid, processors[i]->name);
+                    printf("\tElapsed time = %.2lf secs\n", processors[i]->t_end - processors[i]->t_submission);
+                    printf("\tExecution time = %.2lf secs\n", processors[i]->t_end - processors[i]->t_start);
+                    printf("\tWorkload time = %.2lf secs\n", processors[i]->t_end - global_t);
+                    break;
+                }
+            }
+        }
+
+        // Assign the dequeued process to the processor
+        processors[i] = proc;
+        proc->t_start = proc_gettime();
+        pid = fork();
+
+        if (pid == -1) {
+            err_exit("fork failed!");
+        } else if (pid == 0) {
+            printf("Processor %d executing %s\n", i + 1, proc->name);
+            execl(proc->name, proc->name, NULL);
+        } else {
+            proc->pid = pid;
+            proc->status = PROC_RUNNING;
+            processor_status[i] = PROC_RUNNING;
+        }
+    }
+
+    // Wait for remaining processes to finish
+    for (i = 0; i < numprocs; i++) {
+        if (processor_status[i] == PROC_RUNNING) {
+            pid = waitpid(processors[i]->pid, &status, 0);
+            if (pid < 0) err_exit("waitpid failed");
+            processors[i]->status = PROC_EXITED;
+            processors[i]->t_end = proc_gettime();
+            printf("Processor %d - PID %d - CMD: %s\n", i, pid, processors[i]->name);
+            printf("\tElapsed time = %.2lf secs\n", processors[i]->t_end - processors[i]->t_submission);
+            printf("\tExecution time = %.2lf secs\n", processors[i]->t_end - processors[i]->t_start);
+            printf("\tWorkload time = %.2lf secs\n", processors[i]->t_end - global_t);
+        }
+    }
+
+    // Free dynamically allocated memory
+    free(processors);
+    free(processor_status);
 }
+
+
 
 
 void sigchld_handler(int signo, siginfo_t *info, void *context)
