@@ -1,0 +1,248 @@
+//code goes here
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <signal.h>
+#include <sys/types.h>
+#include <sys/time.h>
+#include <time.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
+#define MAX_LINE_LENGTH 80
+#define MAX_PROCESSORS 100000 // Ο μέγιστος αριθμός επεξεργαστών
+
+typedef struct proc_desc {
+    struct proc_desc *next;
+    struct proc_desc *prev;
+    char name[80];
+    int processors_needed;
+    int pid;
+    int status;
+    double t_submission, t_start, t_end;
+} proc_t;
+
+struct single_queue {
+    proc_t *first;
+    proc_t *last;
+    long members;
+};
+
+struct single_queue global_q;
+
+int total_processors = 0;   // Συνολικοί διαθέσιμοι επεξεργαστές
+int free_processors = 0;    // Ελεύθεροι επεξεργαστές
+
+#define PROC_NEW       0
+#define PROC_STOPPED   1
+#define PROC_RUNNING   2
+#define PROC_EXITED    3
+
+#define proc_queue_empty(q) ((q)->first == NULL)
+
+void proc_queue_init(struct single_queue *q) {
+    q->first = q->last = NULL;
+    q->members = 0;
+}
+/*
+void proc_to_rq_end(proc_t *proc) {
+    if (proc_queue_empty(&global_q))
+        global_q.first = global_q.last = proc;
+    else {
+        global_q.last->next = proc;
+        global_q.last = proc;
+        proc->next = NULL;
+    }
+}*/
+
+
+void proc_to_rq_end(proc_t *proc) {
+    proc->next = NULL; // Δεν υπάρχει επόμενος αφού μπαίνει στο τέλος
+
+    if (proc_queue_empty(&global_q)) {
+        global_q.first = global_q.last = proc;
+        proc->prev = NULL; // Είναι ο πρώτος κόμβος, δεν έχει προηγούμενο
+    } else {
+        global_q.last->next = proc;   // Συνδέουμε τον προηγούμενο κόμβο με το νέο
+        proc->prev = global_q.last;  // Ο προηγούμενος του νέου είναι ο παλιός τελευταίος
+        global_q.last = proc;        // Ενημερώνουμε το τελευταίο στοιχείο της ουράς
+    }
+}
+
+/*
+proc_t *proc_rq_dequeue() {
+    proc_t *proc = global_q.first;
+    if (proc == NULL) return NULL;
+
+    global_q.first = proc->next;
+    proc->next = NULL;
+    return proc;
+}*/
+
+proc_t *proc_rq_dequeue() {
+    proc_t *proc = global_q.first; // Παίρνουμε το πρώτο στοιχείο της ουράς
+    if (proc == NULL) return NULL; // Αν η ουρά είναι κενή, επιστρέφουμε NULL
+
+    global_q.first = proc->next; // Μετακινούμε τον δείκτη στον επόμενο κόμβο
+    if (global_q.first == NULL) {
+        global_q.last = NULL; // Αν αφαιρέθηκε το τελευταίο στοιχείο, η ουρά είναι πλέον κενή
+    }
+
+    proc->next = NULL; // Αποσυνδέουμε τον κόμβο από την ουρά
+    return proc;       // Επιστρέφουμε τον κόμβο
+}
+
+
+double proc_gettime() {
+    struct timeval tv;
+    gettimeofday(&tv, 0);
+    return (double)(tv.tv_sec + tv.tv_usec / 1000000.0);
+}
+
+void err_exit(char *msg) {
+    printf("Error: %s\n", msg);
+    fflush(stdout);
+    exit(1);
+}
+// Λίστα για ενεργές διεργασίες
+struct single_queue active_q;
+void fcfs() {
+    printf("Starting FCFS scheduling...\n");
+    fflush(stdout);
+    int c;
+    int status;
+    proc_t *proc;
+    proc_t *prev;
+    proc_t *previous;
+    pid_t pid;
+    int active_processes = 0;
+
+    while (!proc_queue_empty(&global_q)) {
+        // Ελέγχουμε αν υπάρχουν διαθέσιμοι επεξεργαστές και διεργασίες στην ουρά
+        while (!proc_queue_empty(&global_q) && free_processors > 0) {
+            proc = global_q.first;
+
+            // Ελέγχουμε αν η διεργασία μπορεί να ξεκινήσει
+            if (proc->processors_needed <= free_processors) {
+                proc = proc_rq_dequeue(); // Αφαιρούμε τη διεργασία από την ουρά
+                free_processors -= proc->processors_needed; // Δέσμευση επεξεργαστών
+
+                if (proc->status == PROC_NEW) {
+                    proc->t_start = proc_gettime();
+                    pid = fork();
+
+                    if (pid == -1) {
+                        err_exit("fork failed!");
+                    }
+
+                    if (pid == 0) {
+                        printf("Executing %s\n", proc->name);
+                        fflush(stdout);
+                        execl(proc->name, proc->name, NULL);
+                        err_exit("execl failed!");
+                    } else {
+                        proc->pid = pid;
+                        proc->status = PROC_RUNNING;
+                        printf("Started process: %s (PID %d), Processors: %d\n",
+                               proc->name, pid, proc->processors_needed);
+                        fflush(stdout);
+                    }
+                }
+            } else {
+                // Αν δεν υπάρχουν αρκετοί διαθέσιμοι επεξεργαστές, περιμένουμε
+                break;
+            }
+        }
+
+        proc_t *completed_proc = NULL;
+     
+        if (pid > 0) {
+            while ((pid = waitpid(-1, &status, 0)) > 0) {
+            // Εντοπίζουμε τη διεργασία που ολοκληρώθηκε
+            for (proc_t *p = global_q.last ; p != NULL; p =p->prev){
+                
+                if (p->pid == pid) {
+                    completed_proc = p;
+                    printf("diergasia: %s\n", p->name);  
+                    // Βρες τη διεργασία που τερματίστηκε
+                    printf("Process with PID %d has finished.\n", pid);
+                    fflush(stdout);
+
+                    if (completed_proc) {
+                
+                        completed_proc->status = PROC_EXITED;
+                        completed_proc->t_end = proc_gettime();
+                        free_processors += completed_proc->processors_needed;
+
+                        printf("FREE PROC: %d\n", free_processors);
+                        printf("PID %d - CMD: %s\n", pid, completed_proc->name);
+                        printf("\tElapsed time = %.2lf secs\n", completed_proc->t_end - completed_proc->t_submission);
+                        printf("\tExecution time = %.2lf secs\n", completed_proc->t_end - completed_proc->t_start);
+                        fflush(stdout);
+                    }
+                    else  {
+                        perror("waitpid failed");
+                        break;
+                    }
+                }
+           }
+        }
+    }
+        
+    printf("All processes completed.\n");
+    fflush(stdout);
+    break;
+    }
+    
+}
+
+
+
+
+int main(int argc, char **argv) {
+    FILE *input;
+    char exec[80];
+    
+    int processors_needed;
+    proc_t *proc;
+
+   
+
+    total_processors = atoi(argv[1]);
+    if (total_processors < 0 || total_processors > MAX_PROCESSORS) {
+        err_exit("Invalid number of processors");
+    }
+    if (total_processors == 0) {
+        total_processors = 1;
+    }
+
+
+    free_processors = total_processors;
+
+    input = fopen(argv[2], "r");
+    if (input == NULL) {
+        err_exit("Invalid input file name");
+    }
+
+    // Ανάγνωση αρχείου εισόδου
+    while (fscanf(input, "%s %d", exec, &processors_needed) != EOF) {
+        proc = malloc(sizeof(proc_t));
+        proc->next = NULL;
+        strcpy(proc->name, exec);
+        proc->processors_needed = processors_needed > 0 ? processors_needed : 1;
+        proc->pid = -1;
+        proc->status = PROC_NEW;
+        proc->t_submission = proc_gettime();
+        proc_to_rq_end(proc);
+    }
+
+    fclose(input);
+
+    printf("Starting FCFS scheduling with %d processors.\n", total_processors);
+    fflush(stdout);
+    fcfs();
+
+    printf("Scheduler exits.\n");
+    fflush(stdout);
+    return 0;
+}
