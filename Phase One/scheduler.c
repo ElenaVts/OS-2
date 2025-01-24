@@ -23,7 +23,7 @@ typedef struct proc_desc {
 	char name[80];
 	int pid;
 	int status;
-	int num_procs; /////////////////////////////////////////////////////////////
+	int num_procs; // Number of needed processors
 	double t_submission, t_start, t_end;
 } proc_t;
 
@@ -125,7 +125,7 @@ int main(int argc,char **argv)
 	} else if (argc == 2) {
 		input = fopen(argv[1],"r");
 		if (input == NULL) err_exit("invalid input file name");
-		num_processors = 1;
+		num_processors = 1; //Default to 1 processor
 	} else if (argc > 2) {
 		if (!strcmp(argv[1],"FCFS")) {
 			policy = FCFS;
@@ -153,7 +153,7 @@ int main(int argc,char **argv)
     proc_queue_init(&global_q);
     
 	/* Read input file */
-	while ((c=fscanf(input, "%s %d", exec, &numprocs))!=EOF) { ///////////////////////////////
+	while ((c=fscanf(input, "%s %d", exec, &numprocs))!=EOF) {
 		// printf("fscanf returned %d\n", c);
 		// printf("exec = %s\n", exec);
 
@@ -162,7 +162,7 @@ int main(int argc,char **argv)
 		strcpy(proc->name, exec);
 		proc->pid = -1;
 		proc->status = PROC_NEW;
-		proc->num_procs = numprocs; /////////////////////////////////////////////
+		proc->num_procs = numprocs;
 		proc->t_submission = proc_gettime();
 		proc_to_rq_end(proc);
 	}
@@ -190,77 +190,20 @@ int main(int argc,char **argv)
 	return 0;
 }
 
-
-/*void fcfs(int numprocs)
-{
-    proc_t *processor_queues[numprocs];
-	proc_t *proc;
-	int pid;
-	int status;
-
-    for (int i = 0; i < numprocs; i++) {
-        processor_queues[i] = NULL;
-    }
-    
-    int count = 0; // Count total processes
-    proc_t *temp_proc = global_q.first;
-    while (temp_proc != NULL) {
-        count++;
-        temp_proc = temp_proc->next;
-    }
-    
-    proc_t *processes[count];
-    temp_proc = global_q.first;
-    for (int i = 0; i < count; i++) {
-        processes[i] = temp_proc;
-        temp_proc = temp_proc->next;
-    }
-    
-    
-    
-	while ((proc=proc_rq_dequeue()) != NULL) {
-		// printf("Dequeued process with name %s\n", proc->name);
-		if (proc->status == PROC_NEW) {
-			proc->t_start = proc_gettime();
-			pid = fork();
-			if (pid == -1) {
-				err_exit("fork failed!");
-			}
-			if (pid == 0) { /////////////////////////////anathesi ergasias se epejergasti.
-				printf("executing %s\n", proc->name);
-				execl(proc->name, proc->name, NULL);
-			} else {
-				proc->pid = pid;
-				proc->status = PROC_RUNNING;
-				pid = waitpid(proc->pid, &status, 0);
-				proc->status = PROC_EXITED;
-				if (pid < 0) err_exit("waitpid failed");
-				proc->t_end = proc_gettime();
-				printf("PID %d - CMD: %s\n", pid, proc->name);
-				printf("\tElapsed time = %.2lf secs\n", proc->t_end-proc->t_submission);
-				printf("\tExecution time = %.2lf secs\n", proc->t_end-proc->t_start);
-				printf("\tWorkload time = %.2lf secs\n", proc->t_end-global_t);
-				//////////////////////////////////////////////////////eleutherwsi epejergasti.
-			}
-		}
-	}
-}*/
-
 void fcfs(int numprocs) {
     proc_t *proc;
     int *processor_status;
     proc_t **processors;
     int i, status;
     pid_t pid;
-
-    // Allocate memory for processors and processor statuses dynamically
+	
     processors = malloc(numprocs * sizeof(proc_t *));
     processor_status = malloc(numprocs * sizeof(int));
     if (!processors || !processor_status) {
         err_exit("Memory allocation failed for processors or statuses");
     }
 
-    // Initialize all processors as available
+    // Set all processors as available
     for (i = 0; i < numprocs; i++) {
         processors[i] = NULL;
         processor_status[i] = PROC_NEW;
@@ -270,12 +213,12 @@ void fcfs(int numprocs) {
         // Find the next available processor
         for (i = 0; i < numprocs; i++) {
             if (processor_status[i] == PROC_EXITED || processor_status[i] == PROC_NEW) {
-                break; // Found an available processor
+                break;
             }
         }
 
         if (i == numprocs) {
-            // No processors are free; wait for one to complete
+            // No free processors. Waiting list.
             pid = waitpid(-1, &status, 0);
             if (pid < 0) err_exit("waitpid failed");
             for (i = 0; i < numprocs; i++) {
@@ -322,7 +265,7 @@ void fcfs(int numprocs) {
         }
     }
 
-    // Free dynamically allocated memory
+    // Free memory
     free(processors);
     free(processor_status);
 }
