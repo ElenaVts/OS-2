@@ -24,7 +24,7 @@ typedef struct proc_desc {
 	char name[80];
 	int pid;
 	int status;
-	int num_procs; /////////////////////////////////////////////////////////////
+	int num_procs;
 	double t_submission, t_start, t_end;
 } proc_t;
 
@@ -128,7 +128,7 @@ int main(int argc,char **argv)
 	} else if (argc == 2) {
 		input = fopen(argv[1],"r");
 		if (input == NULL) err_exit("invalid input file name");
-		num_processors = 1;
+		num_processors = 1; // Default to 1 processor
 	} else if (argc > 2) {
 		if (!strcmp(argv[1],"FCFS")) {
 			policy = FCFS;
@@ -157,7 +157,7 @@ int main(int argc,char **argv)
     			if (argc > 4) {
      	     num_processors = atoi(argv[4]);
    	 } else {
-       	      num_processors = 1; // Default
+       	      num_processors = 1; // Default to 1 processor
     	}
 
 		}else {
@@ -167,7 +167,7 @@ int main(int argc,char **argv)
     proc_queue_init(&global_q);
     
 	/* Read input file */
-	while ((c=fscanf(input, "%s %d", exec, &numprocs))!=EOF) { ///////////////////////////////
+	while ((c=fscanf(input, "%s %d", exec, &numprocs))!=EOF) {
 		// printf("fscanf returned %d\n", c);
 		// printf("exec = %s\n", exec);
 
@@ -176,7 +176,7 @@ int main(int argc,char **argv)
 		strcpy(proc->name, exec);
 		proc->pid = -1;
 		proc->status = PROC_NEW;
-		proc->num_procs = numprocs; /////////////////////////////////////////////
+		proc->num_procs = numprocs;
 		proc->t_submission = proc_gettime();
 		proc_to_rq_end(proc);
 	}
