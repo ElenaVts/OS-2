@@ -101,6 +101,7 @@ double proc_gettime()
 
 #define FCFS	0
 #define RR	1
+#define RRAFF   2
 
 int policy = FCFS;
 int quantum = 100;	/* ms */
