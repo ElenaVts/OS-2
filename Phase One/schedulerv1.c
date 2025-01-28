@@ -216,15 +216,14 @@ void fcfs(int numprocs) {
     proc_t **processors;
     int i, status;
     pid_t pid;
-
-    // Allocate memory for processors and processor statuses dynamically
+	
     processors = malloc(numprocs * sizeof(proc_t *));
     processor_status = malloc(numprocs * sizeof(int));
     if (!processors || !processor_status) {
         err_exit("Memory allocation failed for processors or statuses");
     }
 
-    // Initialize all processors as available
+    // Set all processors as available
     for (i = 0; i < numprocs; i++) {
         processors[i] = NULL;
         processor_status[i] = PROC_NEW;
@@ -234,12 +233,12 @@ void fcfs(int numprocs) {
         // Find the next available processor
         for (i = 0; i < numprocs; i++) {
             if (processor_status[i] == PROC_EXITED || processor_status[i] == PROC_NEW) {
-                break; // Found an available processor
+                break;
             }
         }
 
         if (i == numprocs) {
-            // No processors are free; wait for one to complete
+            // No free processors. Waiting list.
             pid = waitpid(-1, &status, 0);
             if (pid < 0) err_exit("waitpid failed");
             for (i = 0; i < numprocs; i++) {
@@ -286,10 +285,11 @@ void fcfs(int numprocs) {
         }
     }
 
-    // Free dynamically allocated memory
+    // Free memory
     free(processors);
     free(processor_status);
 }
+
 
 
 void sigchld_handler(int signo, siginfo_t *info, void *context)
